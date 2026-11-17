@@ -5,6 +5,7 @@
   status            打印守护进程汇总的当前状态
   demo              让设备依次演示七种画面
   setup             查找 AI Passport 的串口，握手确认后写入 config.json
+  setup-ble         在 Windows 上选择、配对并启用 AI Passport BLE
   install-hooks     部署脚本并为 WorkBuddy、Codex 安装 hook（先备份）
   uninstall-hooks   删除本工具安装的 hook
   install-service   部署脚本并注册 launchd，登录后自动运行
@@ -45,6 +46,16 @@ def _load_config(home):
         return {}
 
 
+def _save_config(home, config):
+    os.makedirs(home, exist_ok=True)
+    path = os.path.join(home, "config.json")
+    temp = path + ".tmp"
+    with open(temp, "w", encoding="utf-8") as stream:
+        json.dump(config, stream, ensure_ascii=False, indent=2)
+        stream.write("\n")
+    os.replace(temp, path)
+
+
 def _port_finder(home):
     """优先用 config.json 记录的端口；未记录时按 Espressif 厂商号自动查找。"""
     def find():
@@ -67,22 +78,40 @@ def cmd_run(args):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", **log_options)
     config = _load_config(home)
     run_dir = os.path.join(home, "run")
+    bridge = ble_factory = ble_hint = None
+    if sys.platform == "darwin":
+        ble_factory = lambda: BleLink(os.path.join(run_dir, "ble.sock"), os.path.join(run_dir, "ble-status.json"))
+    elif sys.platform == "win32" and isinstance(config.get("ble_device"), str) and config["ble_device"]:
+        from .windows_ble import BleUnavailable, WindowsBleBridge
+
+        try:
+            bridge = WindowsBleBridge(config["ble_device"])
+            ble_factory, ble_hint = bridge.link, bridge.hint
+        except BleUnavailable as exc:
+            message = str(exc)
+            logging.warning("Windows 蓝牙：%s", message)
+            ble_hint = lambda: message
     daemon = Daemon(
         home=home,
         port_finder=_port_finder(home),
         dsh_root=os.path.expanduser(config.get("dsh_root", os.path.join(os.environ.get("DSH_HOME") or os.path.expanduser("~/.dsh"), "sessions"))),
         rules=config.get("rules"),
         # 没有 USB 时经蓝牙桥接程序发送
-        ble_factory=(lambda: BleLink(os.path.join(run_dir, "ble.sock"), os.path.join(run_dir, "ble-status.json")))
-                    if sys.platform == "darwin" else None,
+        ble_factory=ble_factory,
+        ble_hint=ble_hint,
         # Codex 订阅用量，供设备上的专用页面显示
         usage=UsageCollector(),
     )
-    daemon.start()
     try:
+        daemon.start()
+        if bridge:
+            bridge.start()
         daemon.run_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        if bridge:
+            bridge.close()
     return 0
 
 
@@ -163,7 +192,9 @@ def cmd_status(args):
             bridge_hint = json.load(f).get("hint")
     except (OSError, ValueError, AttributeError):
         bridge_hint = None
-    if bridge_hint:
+    if status.get("ble_hint"):
+        print("蓝牙：%s" % status["ble_hint"])
+    elif bridge_hint:
         print("蓝牙：%s" % bridge_hint)
 
     if getattr(args, "events", False):
@@ -219,13 +250,68 @@ def cmd_setup(args):
         if hello:
             config = _load_config(args.home)
             config["port"] = port
-            os.makedirs(args.home, exist_ok=True)
-            with open(os.path.join(args.home, "config.json"), "w", encoding="utf-8") as f:
-                json.dump(config, f, indent=2, ensure_ascii=False)
+            _save_config(args.home, config)
             print("已找到 AI Passport：%s（固件 %s），已写入 config.json。" % (port, hello.get("fw", "?")))
             return 0
         print("%s：没有收到握手回复，设备上可能还不是 Agent Run! 固件。" % port)
     return 1
+
+
+def cmd_setup_ble(args):
+    if sys.platform != "win32":
+        print("setup-ble 用于 Windows；macOS 请使用 install-bridge-service。")
+        return 1
+    if args.disable:
+        config = _load_config(args.home)
+        config.pop("ble_device", None)
+        _save_config(args.home, config)
+        print("已停用蓝牙。重启采集程序后生效；Windows 中的配对保留。")
+        return 0
+
+    from .windows_ble import PAIR_SECONDS, HELLO_SECONDS, SCAN_SECONDS, WindowsBleBridge, scan_devices
+
+    print("正在扫描 AI Passport…", flush=True)
+    try:
+        devices = scan_devices(args.device)
+    except Exception as exc:
+        print("蓝牙扫描失败：%s" % exc)
+        return 1
+    if not devices:
+        print("未发现设备。请先唤醒 AI Passport，确认蓝牙开启；若设备正被采集程序连接，请先停止它。")
+        return 1
+    if args.scan or len(devices) != 1:
+        for address, name in devices:
+            print("%s  %s" % (name, address))
+        if not args.scan:
+            print("找到多台设备，请用 --device 指定完整设备名或蓝牙地址。")
+        return 0 if args.scan else 1
+
+    address, name = devices[0]
+    print("正在配对 %s。Windows 如果弹出提示，请确认；设备出现配对画面时请短按 OK。" % name, flush=True)
+    bridge = WindowsBleBridge(address)
+    bridge.start()
+    try:
+        deadline = time.monotonic() + SCAN_SECONDS + PAIR_SECONDS + HELLO_SECONDS
+        hint = None
+        while time.monotonic() < deadline:
+            session = bridge.current()
+            if session:
+                config = _load_config(args.home)
+                config["ble_device"] = address
+                _save_config(args.home, config)
+                print("已连接 %s（固件 %s），已保存设置。请重启采集程序。" % (name, session.hello["fw"]))
+                return 0
+            current_hint = bridge.hint()
+            if current_hint and current_hint != hint:
+                print(current_hint, flush=True)
+                hint = current_hint
+            time.sleep(0.2)
+        print("配对未完成；未更改采集配置。")
+        return 1
+    except KeyboardInterrupt:
+        return 130
+    finally:
+        bridge.close()
 
 
 def cmd_screenshot(args):
@@ -290,7 +376,7 @@ def cmd_install_service(args):
 def cmd_install_bridge_service(args):
     """注册蓝牙桥接程序（需先用 bridge/build.sh 构建并安装 .app）。"""
     if sys.platform != "darwin":
-        print("蓝牙桥接目前仅支持 macOS。Windows 请使用 USB。")
+        print("这是 macOS 的蓝牙桥安装命令。Windows 请运行 setup-ble。")
         return 1
     app = os.path.expanduser("~/Applications/AgentRunBridge.app")
     if not os.path.exists(os.path.join(app, "Contents", "MacOS", "AgentRunBridge")):
@@ -303,7 +389,7 @@ def cmd_install_bridge_service(args):
 
 def cmd_uninstall_bridge_service(args):
     if sys.platform != "darwin":
-        print("蓝牙桥接目前仅支持 macOS。")
+        print("这是 macOS 的蓝牙桥卸载命令。Windows 请运行 setup-ble --disable。")
         return 1
     install.uninstall_service(install.BRIDGE_LABEL)
     print("已注销蓝牙桥接程序的登录自启；如需彻底移除，再删除 ~/Applications/AgentRunBridge.app。")
@@ -330,6 +416,12 @@ def main(argv=None):
     run = sub.add_parser("run")
     run.add_argument("--log-file", action="store_true", help="将日志写入运行目录")
     run.set_defaults(func=cmd_run)
+    ble = sub.add_parser("setup-ble", help="设置 Windows 蓝牙")
+    ble.add_argument("--device", help="完整广播名（AgentRun-XXXX）或 BLE 地址")
+    mode = ble.add_mutually_exclusive_group()
+    mode.add_argument("--scan", action="store_true", help="只列出可用设备")
+    mode.add_argument("--disable", action="store_true", help="关闭蓝牙传输，保留系统配对")
+    ble.set_defaults(func=cmd_setup_ble)
     for name, func in [
         ("demo", cmd_demo),
         ("install-dsh-hooks", cmd_install_dsh_hooks),

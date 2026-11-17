@@ -99,7 +99,7 @@ def _read_json(path, default):
 
 class Daemon:
     def __init__(self, home=None, clock=time.time, link_factory=SerialLink, port_finder=None,
-                 dsh_root=None, day_of=local_day, rules=None, ble_factory=None, usage=None):
+                 dsh_root=None, day_of=local_day, rules=None, ble_factory=None, usage=None, ble_hint=None):
         """
         home:         运行数据目录
         clock:        时钟函数
@@ -118,6 +118,7 @@ class Daemon:
         self._clock = clock
         self._link_factory = link_factory
         self._ble_factory = ble_factory
+        self._ble_hint = ble_hint
         self._next_usb_check = 0.0
         self._port_finder = port_finder or (lambda: None)
         self._dsh_root = dsh_root
@@ -394,6 +395,8 @@ class Daemon:
             "recent": self._agg.recent_events(),
             "agents": self._agents_status(),
         }
+        if self._ble_hint:
+            status["ble_hint"] = self._ble_hint()
         if status == self._last_status and now - self._last_status_at < STATUS_REFRESH_SECONDS:
             return
         self._last_status = status

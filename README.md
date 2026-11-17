@@ -1,47 +1,93 @@
-# Agent Run! — WorkBuddy 版
+# Agent Run! · WorkBuddy 版
 
-在 FoloToy AI Passport 上查看本机 WorkBuddy、Codex 和 dsh 会话。工作会话越多，宠物跑得越快；审批、提问和完成事件会切换画面并发出提示音。
+把电脑上的 **WorkBuddy、Codex、dsh** 会话显示在 AI Passport 上。工作时宠物会加速；等待授权或回答时，屏幕会标出是哪一个工具。设备只接收计数、工具代号、等待原因和可用的用量指标；提示词、工具参数和会话正文留在电脑上。
 
-本分支基于 [Agent Run! 上游](https://github.com/north1952/agent-run) 和 [社区玩法](https://ai-passport.folotoy.cn/plays/2095/)，沿用原版屏幕、按键、动画、省电和勿扰功能。首页显示 WB、CODEX、DSH 计数；按上下键切换到 WorkBuddy 和 Codex 专页。WorkBuddy 显示会话计数，用量显示「暂无数据」；Codex 从本地会话记录读取 5 小时及每周用量。设备只接收计数、工具代号、等待原因和可用的用量信息，不接收对话内容。
+## 先选连接方式
 
-| 工具 | 接入方式 | 可识别的等待事件 |
+| 电脑 | USB 数据线 | 蓝牙 |
 | --- | --- | --- |
-| WorkBuddy | 桌面端用户 Hook；独立 CodeBuddy CLI 可指定自己的配置文件 | 权限、交互提问、计划确认 |
-| Codex | 桌面端或 CLI Hook，需在 Codex 内审查信任 | 权限、同步或异步提问 |
-| dsh | CLI profile 使用官方 Hook 插件；无 Hook 时按会话文件写入时间估算工作状态 | 插件上报的问答工具调用 |
+| Windows 10/11 | 支持，最省事 | 支持 BLE；首次需在设备上确认配对 |
+| macOS | 支持 | 使用原版蓝牙桥；本次未重新实测 |
 
-## Windows 快速开始（USB）
+设备需要 [WorkBuddy 版固件 0.6.2-wb](https://github.com/north1952/agent-run/releases/tag/v0.6.2-wb)。**已经运行这个固件的设备，升级 Windows 蓝牙只需更新电脑端。** 首次安装参见[固件刷写说明](displays/ai-passport/README.md)：从 `0x0` 刷入合并镜像会重置设备设置和蓝牙配对。旧 Claude Code 版主机或固件使用不同的工具代号，两端请成对升级。
 
-需要 Python 3.9+。按 [WorkBuddy / CodeBuddy Hook 文档](https://www.workbuddy.cn/docs/cli/hooks) 配置 Git Bash（已安装但客户端未找到时，设置 `CODEBUDDY_CODE_GIT_BASH_PATH`）。从仓库根目录运行：
+## Windows：首次设置
+
+建议安装 Python 3.10 或以上，并在 PowerShell 确认 `python --version` 可用。以下命令在仓库根目录执行；下载代码时请选择 `feature/workbuddy-passport` 分支。
 
 ```powershell
 python -m pip install -r requirements-windows.txt
 python core/bin/agent-run install-hooks
-python core/bin/agent-run setup
-python core/bin/agent-run run
 ```
 
-完全退出并重新打开 WorkBuddy；如果客户端提示审查 Hook，请按提示启用。Codex 在桌面端 Settings → Hooks 或 CLI 的 `/hooks` 中信任新条目。安装器默认修改 `~/.workbuddy/settings.json` 和 `${CODEX_HOME:-~/.codex}/hooks.json`，先备份再追加；其他 Hook 会保留。独立 CodeBuddy CLI 可将环境变量 `AGENT_RUN_WORKBUDDY_SETTINGS` 设为它实际使用的配置文件，例如 `~/.codebuddy/settings.json`。
+`install-hooks` 会先备份配置，然后只添加本工具的 Hook。按实际使用的工具完成一次设置：
 
-在第二个终端运行 `python core/bin/agent-run status --events` 查看状态，或运行 `python core/bin/agent-run demo` 让设备依次显示七种画面。可选：停止前台进程后运行 `install-service` 注册当前用户的 `AgentRun` 登录任务。运行数据默认在 `%LOCALAPPDATA%\agent-run`，可用 `AGENT_RUN_HOME` 或全局 `--home` 指定。
+- **WorkBuddy**：完全退出后重新打开。如果 WorkBuddy 要求审查 Hook，请启用。默认配置在 `~/.workbuddy/settings.json`。独立 CodeBuddy CLI 可用环境变量 `AGENT_RUN_WORKBUDDY_SETTINGS` 指明它的配置文件，例如 `~/.codebuddy/settings.json`。若 Windows 客户端报告找不到 Bash，按 [Hook 文档](https://www.workbuddy.cn/docs/cli/hooks)设置 Git Bash 路径。
+- **Codex**：在 Settings → Hooks 或 CLI 的 `/hooks` 审查并信任 Agent Run 新增的条目。不信任则不会执行这些 Hook。
+- **dsh**：不配置插件时，采集端可按会话记录的修改时间估算工作数量。要显示提问提醒，请看下方 [dsh 配置](#dsh-配置)。
 
-Windows 使用 USB；macOS 仍可使用原有蓝牙桥。macOS 上可直接用 `core/bin/agent-run` 执行相同子命令，运行目录为 `~/.agent-run`；蓝牙桥用 `transports/macos-ble/build.sh` 构建，再运行 `install-bridge-service`。
+### 用 USB
 
-### dsh
-
-运行 `python core/bin/agent-run install-dsh-hooks`，再把输出的配置追加到需要监控的 profile 的 `cordis.patch.yml`。需要用 `dsh plugin --profile <名称> add @deepseek-ai/dsh-hooks-claude-code@<与 dsh 一致的版本>` 安装官方插件，然后重启该 profile。未挂载插件时，默认从 `~/.dsh/sessions`（或 `DSH_HOME` 下的 `sessions`）估算活跃会话；自定义目录可用运行目录的 `config.json` 中的 `dsh_root` 设置。DeepSeek Harness 桌面端是否可用取决于会话目录和文件格式；它的插件管理不能直接加载这个 CLI 插件。
-
-## 固件与开发
-
-使用 [ESP-IDF 5.5.3](https://github.com/espressif/esp-idf/releases/tag/v5.5.3)。详见[固件构建与烧录](displays/ai-passport/README.md)和[展示端协议](docs/protocol.md)。旧版 Claude Code 上位机与本版固件使用不同的工具代码，请成对升级。设计文档 `docs/specs/` 记录原版实现。
+插上支持数据传输的 USB-C 数据线，启动采集：
 
 ```powershell
-python -m unittest discover -s core/tests -t core
-python displays/ai-passport/tests/test_ar_font_coverage.py
-idf.py -C displays/ai-passport build
-idf.py -C displays/ai-passport merge-bin -o agent-run-ai-passport-full.bin
+python core/bin/agent-run install-service
+python core/bin/agent-run status
 ```
 
-合并镜像输出到 `displays/ai-passport/build/agent-run-ai-passport-full.bin`，从 `0x0` 刷写。完整镜像会重置设备上的 NVS 设置及蓝牙配对。开发时可用 `idf.py flash` 在兼容分区布局下保留设置。刷写或截图前请停止上位机守护进程。
+`install-service` 会部署电脑端并注册当前用户的 `AgentRun` 登录任务，同时启动它。以后只需登录 Windows、接上设备。如果连了多块 Espressif 板子，先让采集程序释放串口（如已注册，运行 `schtasks /End /TN AgentRun`），再运行 `python core/bin/agent-run setup` 握手并固定端口。换 USB 口之后可以重复 `setup`。
 
-感谢 [FoloToy AI Passport](https://github.com/FoloToy/ai-passport) 的板级支持和 [WorkBuddy × AI Passport](https://github.com/zhongdan110/ai-passport-workbuddy) 的桌面接入参考。代码遵循 [MIT 许可](LICENSE)；固件字体来自 Noto Sans SC，详见固件目录。
+### 改用 Windows 蓝牙
+
+保持 Windows 蓝牙开启，并唤醒设备。蓝牙适配器需支持 BLE。已在用旧版采集程序的用户请先更新代码；如果后台**已通过蓝牙**连接此设备，先结束 `AgentRun` 任务以重新配对。
+
+```powershell
+python -m pip install -r requirements-windows-ble.txt
+python core/bin/agent-run setup-ble
+python core/bin/agent-run install-service
+```
+
+1. 扫描发现多个设备时，用 `setup-ble --scan` 查设备名，再运行 `setup-ble --device AgentRun-XXXX`。
+2. Windows 若弹出配对确认，请同意；设备显示「配对这台电脑？」时，短按设备中间的 **OK**。电脑端收到设备回复后才保存配置。
+3. USB 与蓝牙同时可用时优先 USB。拔掉数据线后，后台会切换到 BLE；双击你已创建的桌面快捷方式，或运行 `status`，应显示「已连接 AgentRun-XXXX（蓝牙）」。
+
+已配对的设备无需每次确认。若要停用蓝牙，运行 `setup-ble --disable` 后重新执行 `install-service`，系统配对会保留。
+
+## 日常操作与排障
+
+| 想做什么 | 操作 |
+| --- | --- |
+| 看会话状态 | 设备首页显示 WB、CODEX、DSH 的工作数量。等待面板提示授权或回答；请回到对应电脑应用处理。 |
+| 看专页或设置 | 上下键切换首页、WorkBuddy、Codex；短按 OK 打开设置。Codex 用量来自近期本地会话；WorkBuddy 无可用订阅用量来源，因此显示「暂无数据」。 |
+| 查看连接或 Hook | `python core/bin/agent-run status --events`。没有任务时计数为 0，是正常状态。 |
+| 让设备演示 | `python core/bin/agent-run demo`，约 42 秒。演示包含一次短暂的「未连接」画面，随后会恢复正常。 |
+| 手动启动 Windows 后台 | `schtasks /Run /TN AgentRun`。也可以只运行前台命令 `python core/bin/agent-run run`；前台和后台不要同时启动。 |
+| USB 显示未连接 | 唤醒设备，确认是数据线并重新插拔；检查后台是否运行，确认没有刷机、截屏或其他串口工具占用同一端口。 |
+| 蓝牙找不到设备或一直配对失败 | 唤醒设备并靠近电脑。在 Windows 蓝牙设置中移除对应的 `AgentRun-XXXX`；在设备上长按上键至少 5 秒后松手，清除设备端旧配对，再运行 `setup-ble` 并短按 OK 确认。 |
+| 已连接但没有活动 | 先运行 demo 检查设备链路，再检查 WorkBuddy 是否已重启、Codex Hook 是否已信任、dsh profile 是否配置了插件。 |
+
+Windows 数据和日志默认在 `%LOCALAPPDATA%\agent-run`。安装后的命令可直接运行，例如 `python "$env:LOCALAPPDATA\agent-run\bin\agent-run" status --events`。可用 `AGENT_RUN_HOME` 或 CLI 的全局选项 `--home` 指定数据目录。
+
+### dsh 配置
+
+先运行 `dsh --version`。安装与它**同版本**的 Hook 插件，然后运行 `python core/bin/agent-run install-dsh-hooks`，将打印的配置加到所用 profile 的 `cordis.patch.yml` 并重启该 profile。
+
+```text
+dsh plugin --profile <profile> add @deepseek-ai/dsh-hooks-claude-code@<dsh-version>
+```
+
+没有插件时，默认从 `~/.dsh/sessions`（或 `DSH_HOME` 下的 `sessions`）估算工作状态。可在运行目录的 `config.json` 里用 `dsh_root` 指定会话目录。DeepSeek Harness 桌面端的插件管理不能直接加载这个 CLI 插件。
+
+### macOS
+
+运行 `core/bin/agent-run install-hooks` 和 `core/bin/agent-run install-service`，默认数据目录为 `~/.agent-run`。USB 可直接使用；若要用蓝牙，执行 `transports/macos-ble/build.sh` 构建原版桥，然后运行 `core/bin/agent-run install-bridge-service` 并在设备按 OK 完成配对。
+
+## 验证与开发
+
+已验证 Windows USB 刷机、串口状态与设备中文画面；也已在拔线后验证 Windows BLE 握手及工作计数变化。WorkBuddy 的真实 CLI Hook 已验证，Codex 和 dsh 使用模拟 Hook 验证到真机。macOS 蓝牙、dsh 真实插件会话和长时间无线续航未重新实测。
+
+- [固件构建与刷写](displays/ai-passport/README.md)（ESP-IDF 5.5.3）
+- [AR1 展示协议](docs/protocol.md)
+- 上位机回归：`python -m unittest discover -s core/tests -t core`；字体覆盖：`python displays/ai-passport/tests/test_ar_font_coverage.py`。
+
+感谢 FoloToy AI Passport 的板级支持和 WorkBuddy × AI Passport 的 Windows BLE 参考。仓库按 [MIT 许可](LICENSE)发布；设备中文字体使用 Noto Sans SC 子集。

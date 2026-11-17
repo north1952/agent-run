@@ -1,6 +1,6 @@
 # AI Passport 展示端
 
-[FoloToy AI Passport](https://ai-passport.folotoy.cn/)（ESP32-C3、240×320 屏幕、三个按键）上的 Agent Run! WorkBuddy 版固件。Windows 上位机使用 USB；macOS 可用 USB 或原有蓝牙桥。工作中的会话越多，宠物跑得越快；有会话等你处理时，宠物停下招手并响一声。经 USB 或蓝牙接收 [展示端协议](../../docs/protocol.md)。
+[FoloToy AI Passport](https://ai-passport.folotoy.cn/)（ESP32-C3、240×320 屏幕、三个按键）上的 Agent Run! WorkBuddy 版固件。Windows 上位机可用 USB 或 BLE；macOS 蓝牙使用原版桥。首次配置见根目录的使用说明。工作中的会话越多，宠物跑得越快；有会话等你处理时，宠物停下招手并响一声。经 USB 或蓝牙接收 [展示端协议](../../docs/protocol.md)。
 
 ## 来源与许可
 

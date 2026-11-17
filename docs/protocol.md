@@ -85,6 +85,7 @@ AR1 A t=<WB|CX> wn=<0-99> bg=<0-99> done=<0-999> h=<用量> hr=<分钟> w=<用�
   - RX `6e400002-…`：主机写入 AR1 字节流，可以分片写入，要求链路已加密；
   - TX `6e400003-…`：设备用通知回复 HELLO。
 - 安全：LE Secure Connections 的 Just Works 配对并绑定。第一次配对要在设备上按 OK 确认，确认前收到的数据会被丢弃；已有绑定时，其他主机的配对一律拒绝。
+- Windows 由采集程序通过 Bleak/WinRT 连接已选设备。订阅 TX 并收到 HELLO 后才把蓝牙视为可用；写入 RX 时提交整行，使用 WinRT 的 GATT 带响应写入。USB 有效时状态帧只走 USB。
 - macOS 上由 `transports/macos-ble/` 的桥接程序负责蓝牙收发。它与采集端的交互：
   - 采集端把状态行写到 `~/.agent-run/run/ble.sock`（Unix 数据报）；
   - 桥接程序每 2 秒写一次 `~/.agent-run/run/ble-status.json`：`{"connected", "name", "fw", "updated", "hint"}`；
