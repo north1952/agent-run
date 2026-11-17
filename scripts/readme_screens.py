@@ -30,12 +30,12 @@ from agent_run.state import Snapshot  # noqa: E402
 
 # (文件名, 快照)：与设计稿一致的六种在线画面
 SCREENS = [
-    ("sleep", Snapshot(cc=0, cx=0, ds=0, done=12, wn=0, waiting=[])),
-    ("walk", Snapshot(cc=1, cx=0, ds=0, done=13, wn=0, waiting=[])),
-    ("trot", Snapshot(cc=2, cx=1, ds=0, done=16, wn=0, waiting=[])),
-    ("run", Snapshot(cc=3, cx=1, ds=1, done=21, wn=0, waiting=[])),
-    ("dash", Snapshot(cc=4, cx=2, ds=2, done=34, wn=0, waiting=[])),
-    ("waiting", Snapshot(cc=2, cx=1, ds=0, done=21, wn=2, waiting=[("claude", "A"), ("codex", "Q")])),
+    ("sleep", Snapshot(wb=0, cx=0, ds=0, done=12, wn=0, waiting=[])),
+    ("walk", Snapshot(wb=1, cx=0, ds=0, done=13, wn=0, waiting=[])),
+    ("trot", Snapshot(wb=2, cx=1, ds=0, done=16, wn=0, waiting=[])),
+    ("run", Snapshot(wb=3, cx=1, ds=1, done=21, wn=0, waiting=[])),
+    ("dash", Snapshot(wb=4, cx=2, ds=2, done=34, wn=0, waiting=[])),
+    ("waiting", Snapshot(wb=2, cx=1, ds=0, done=21, wn=2, waiting=[("workbuddy", "A"), ("codex", "Q")])),
 ]
 
 # 等“完成 +N”提示结束的时间：固件 AR_DONE_FLASH_MS 为 5 秒，多留 0.5 秒余量；

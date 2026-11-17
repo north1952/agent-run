@@ -41,6 +41,7 @@ class FakeDevice:
                 pass
 
 
+@unittest.skipUnless(hasattr(os, "openpty"), "requires a Unix pseudo-terminal")
 class SerialLinkTest(unittest.TestCase):
     def setUp(self):
         self.dev = FakeDevice()
@@ -69,8 +70,8 @@ class SerialLinkTest(unittest.TestCase):
         self.assertLess(time.monotonic() - start, 1.0)
 
     def test_write_line_reaches_device(self):
-        self.assertTrue(self.link.write_line("AR1 S seq=1 cc=0 cx=0 ds=0 done=0 wn=0 w=-\n"))
-        self.assertEqual(self.dev.read_line(), "AR1 S seq=1 cc=0 cx=0 ds=0 done=0 wn=0 w=-\n")
+        self.assertTrue(self.link.write_line("AR1 S seq=1 wb=0 cx=0 ds=0 done=0 wn=0 w=-\n"))
+        self.assertEqual(self.dev.read_line(), "AR1 S seq=1 wb=0 cx=0 ds=0 done=0 wn=0 w=-\n")
 
     def test_read_lines_buffers_partial_lines(self):
         self.dev.write(b"AR1 HEL")

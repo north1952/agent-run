@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 from agent_run.install import (
-    CLAUDE_EVENTS,
+    WORKBUDDY_EVENTS,
     CODEX_EVENTS,
     codex_untrusted_events,
     install_hooks,
@@ -30,27 +30,27 @@ def read_json(path):
 class InstallHooksTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
-        self.claude = os.path.join(self.dir, "settings.json")
+        self.workbuddy = os.path.join(self.dir, "settings.json")
         self.codex = os.path.join(self.dir, "hooks.json")
         self.backup = os.path.join(self.dir, "backup")
         self.other = {"type": "command", "command": "/usr/local/bin/other-tool"}
-        write_json(self.claude, {
+        write_json(self.workbuddy, {
             "model": "opus",
             "hooks": {"Stop": [{"hooks": [self.other]}]},
         })
         write_json(self.codex, {"hooks": {"Stop": [{"hooks": [self.other]}]}})
 
     def install(self):
-        return install_hooks(self.claude, self.codex, "/usr/bin/python3", HOOK, self.backup)
+        return install_hooks(self.workbuddy, self.codex, "/usr/bin/python3", HOOK, self.backup)
 
     def test_appends_entries_for_every_event_and_keeps_others(self):
         self.install()
-        claude = read_json(self.claude)
-        self.assertEqual(claude["model"], "opus")
-        self.assertEqual(set(claude["hooks"]), set(CLAUDE_EVENTS))
-        self.assertIn({"hooks": [self.other]}, claude["hooks"]["Stop"])
-        ours = [h for g in claude["hooks"]["Stop"] for h in g["hooks"] if HOOK in h["command"]]
-        self.assertEqual(ours, [{"type": "command", "command": "/usr/bin/python3 %s claude" % HOOK, "async": True}])
+        workbuddy = read_json(self.workbuddy)
+        self.assertEqual(workbuddy["model"], "opus")
+        self.assertEqual(set(workbuddy["hooks"]), set(WORKBUDDY_EVENTS))
+        self.assertIn({"hooks": [self.other]}, workbuddy["hooks"]["Stop"])
+        ours = [h for g in workbuddy["hooks"]["Stop"] for h in g["hooks"] if HOOK in h["command"]]
+        self.assertEqual(ours, [{"type": "command", "command": "/usr/bin/python3 %s workbuddy" % HOOK, "async": True}])
         codex = read_json(self.codex)
         self.assertEqual(set(codex["hooks"]), set(CODEX_EVENTS))
         ours = [h for g in codex["hooks"]["Stop"] for h in g["hooks"] if HOOK in h["command"]]
@@ -58,9 +58,9 @@ class InstallHooksTest(unittest.TestCase):
 
     def test_install_is_idempotent(self):
         self.install()
-        first = read_json(self.claude)
+        first = read_json(self.workbuddy)
         self.install()
-        self.assertEqual(read_json(self.claude), first)
+        self.assertEqual(read_json(self.workbuddy), first)
 
     def test_backs_up_existing_files_before_writing(self):
         self.install()
@@ -70,18 +70,18 @@ class InstallHooksTest(unittest.TestCase):
         self.assertEqual(sorted(backups), ["hooks.json", "settings.json"])
 
     def test_missing_files_are_created(self):
-        os.remove(self.claude)
+        os.remove(self.workbuddy)
         os.remove(self.codex)
         self.install()
-        self.assertEqual(set(read_json(self.claude)["hooks"]), set(CLAUDE_EVENTS))
+        self.assertEqual(set(read_json(self.workbuddy)["hooks"]), set(WORKBUDDY_EVENTS))
         self.assertEqual(set(read_json(self.codex)["hooks"]), set(CODEX_EVENTS))
 
     def test_uninstall_removes_only_our_entries(self):
-        before_claude = read_json(self.claude)
+        before_workbuddy = read_json(self.workbuddy)
         before_codex = read_json(self.codex)
         self.install()
-        uninstall_hooks(self.claude, self.codex, HOOK, self.backup)
-        self.assertEqual(read_json(self.claude), before_claude)
+        uninstall_hooks(self.workbuddy, self.codex, HOOK, self.backup)
+        self.assertEqual(read_json(self.workbuddy), before_workbuddy)
         self.assertEqual(read_json(self.codex), before_codex)
 
 
@@ -100,7 +100,7 @@ class CodexTrustTest(unittest.TestCase):
     def write_config(self, keys):
         lines = ["[features]", "hooks = true", "", "[hooks.state]"]
         for key in keys:
-            lines += ['[hooks.state."%s"]' % key, 'trusted_hash = "sha256:abc"', ""]
+            lines += ['[hooks.state.%s]' % json.dumps(key, ensure_ascii=False), 'trusted_hash = "sha256:abc"', ""]
         with open(self.config, "w") as f:
             f.write("\n".join(lines))
 

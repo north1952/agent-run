@@ -8,7 +8,7 @@ from collections import deque, namedtuple
 
 # 通过 hook 上报事件的工具。dsh 需要启用其 hook 插件后才会上报；
 # 未收到过 dsh 事件时，dsh 计数仍用会话文件扫描的估算
-HOOK_TOOLS = ("claude", "codex", "dsh")
+HOOK_TOOLS = ("workbuddy", "codex", "dsh")
 
 # 诊断用：保留最近这么多条事件（只含白名单字段）
 RECENT_EVENTS = 20
@@ -25,7 +25,7 @@ BACKGROUND = "background"
 APPROVE = "A"
 QUESTION = "Q"
 
-# 超时回收时限（秒）。工作中 15 分钟大于 Claude Code Bash 工具 10 分钟的上限
+# 超时回收时限（秒）。工作中 15 分钟大于 WorkBuddy Bash 工具 10 分钟的上限
 WORKING_TIMEOUT = 15 * 60
 WAITING_TIMEOUT = 60 * 60
 # 后台运行 2 小时没有事件即回收：容纳常见的长回放、长构建，又不让异常退出的会话长期占着跑速
@@ -35,7 +35,7 @@ IDLE_TIMEOUT = 24 * 3600
 # 可由 config.json 覆盖的映射规则：工具名或通知类型改名时不必改代码
 DEFAULT_RULES = {
     # 阻塞式提问：调用期间 Agent 停下等回答，PostToolUse 到达即回答完毕
-    #   Claude Code AskUserQuestion、Codex request_user_input、dsh ask_user_question
+    #   WorkBuddy AskUserQuestion、Codex request_user_input、dsh ask_user_question
     "question_tools": ["AskUserQuestion", "request_user_input", "ask_user_question"],
     # 异步提问：工具立刻返回，Agent 按默认继续，问题一直挂着（Codex 桌面端）。
     # 挂起状态保留到用户发新消息、中断、会话结束或超时，不随一轮结束清除
@@ -50,10 +50,10 @@ _STOP = "stop"
 _TO_IDLE = "to_idle"
 
 # 对外快照：各工具工作中数量、今日完成数、等你处理总数与按先后排序的等待列表
-Snapshot = namedtuple("Snapshot", "cc cx ds done wn waiting")
+Snapshot = namedtuple("Snapshot", "wb cx ds done wn waiting")
 
 # 单个工具的计数（专用页面方案 §5.1）：等你处理数、后台运行数、今日完成数。
-# 工作中沿用 Snapshot 的 cc / cx / ds，这里不重复
+# 工作中沿用 Snapshot 的 wb / cx / ds，这里不重复
 ToolCounts = namedtuple("ToolCounts", "wn bg done")
 
 
@@ -178,7 +178,7 @@ class Aggregator:
 
     def snapshot(self):
         """生成当前快照。等待列表按进入等待的先后排序，同时刻保持插入顺序。"""
-        working = {"claude": 0, "codex": 0, "dsh": 0}
+        working = {"workbuddy": 0, "codex": 0, "dsh": 0}
         waiting = []
         for (tool, _sid), s in self._sessions.items():
             if s.is_waiting():
@@ -189,7 +189,7 @@ class Aggregator:
         waiting.sort(key=lambda item: item[0])
         items = [(tool, reason) for _, tool, reason in waiting]
         ds = working["dsh"] if self._dsh_hooks_seen else self._dsh_working
-        return Snapshot(cc=working["claude"], cx=working["codex"], ds=ds, done=self._done,
+        return Snapshot(wb=working["workbuddy"], cx=working["codex"], ds=ds, done=self._done,
                         wn=len(items), waiting=items)
 
     def tool_counts(self):
@@ -313,7 +313,7 @@ class Aggregator:
 
     def _target(self, event, msg):
         """按设计方案 §5.2 的映射表，返回事件对应的迁移目标；None 表示只刷新时间。"""
-        if event in ("UserPromptSubmit", "PostToolUse", "PostToolUseFailure", "PermissionDenied"):
+        if event in ("UserPromptSubmit", "PostToolUse", "PostToolUseFailure", "PermissionDenied", "ElicitationResult"):
             return WORKING
         if event == "PreToolUse":
             name = msg.get("tool_name")
@@ -322,6 +322,8 @@ class Aggregator:
             if name in self._approve_tools:
                 return (WAITING, APPROVE)
             return WORKING
+        if event == "Elicitation":
+            return (WAITING, QUESTION)
         if event == "PermissionRequest":
             return (WAITING, APPROVE)
         if event == "Notification":

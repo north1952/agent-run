@@ -38,7 +38,7 @@ static bool parse_wait_list(const char *start, const char *end, ar_state_t *st) 
         if (end - p < 4 || p[2] != ':') return false;
         if (st->w_count >= AR_PROTO_MAX_WAIT) return false;
         ar_wait_item_t item;
-        if (p[0] == 'C' && p[1] == 'C') item.tool = AR_TOOL_CC;
+        if (p[0] == 'W' && p[1] == 'B') item.tool = AR_TOOL_WB;
         else if (p[0] == 'C' && p[1] == 'X') item.tool = AR_TOOL_CX;
         else if (p[0] == 'D' && p[1] == 'S') item.tool = AR_TOOL_DS;
         else return false;
@@ -68,9 +68,9 @@ static bool parse_field(const char *start, const char *end, ar_state_t *st, uint
         if (!parse_uint(v, end, 65535, &n)) return false;
         st->seq = (uint16_t)n;
         *seen |= F_SEQ;
-    } else if (KEY_IS("cc")) {
+    } else if (KEY_IS("wb")) {
         if (!parse_uint(v, end, 99, &n)) return false;
-        st->cc = (uint8_t)n;
+        st->wb = (uint8_t)n;
         *seen |= F_CC;
     } else if (KEY_IS("cx")) {
         if (!parse_uint(v, end, 99, &n)) return false;
@@ -182,7 +182,7 @@ static bool parse_agent_field(const char *start, const char *end, ar_agent_t *a,
     if (KEY_IS("t")) {
         // 只接受有专用页面的工具;dsh 等以后加页面时再放开
         if (end - v != 2) return false;
-        if (v[0] == 'C' && v[1] == 'C') a->tool = AR_TOOL_CC;
+        if (v[0] == 'W' && v[1] == 'B') a->tool = AR_TOOL_WB;
         else if (v[0] == 'C' && v[1] == 'X') a->tool = AR_TOOL_CX;
         else return false;
         *seen |= A_T;

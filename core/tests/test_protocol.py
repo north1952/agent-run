@@ -6,50 +6,50 @@ from agent_run.state import Snapshot, ToolCounts
 from agent_run.usage import NO_LIMIT, Window
 
 
-def snap(cc=0, cx=0, ds=0, done=0, waiting=None):
+def snap(wb=0, cx=0, ds=0, done=0, waiting=None):
     waiting = waiting or []
-    return Snapshot(cc=cc, cx=cx, ds=ds, done=done, wn=len(waiting), waiting=waiting)
+    return Snapshot(wb=wb, cx=cx, ds=ds, done=done, wn=len(waiting), waiting=waiting)
 
 
 class EncodeStateTest(unittest.TestCase):
     def test_matches_spec_example(self):
-        s = snap(cc=3, cx=1, ds=1, done=21, waiting=[("claude", "A"), ("codex", "Q")])
+        s = snap(wb=3, cx=1, ds=1, done=21, waiting=[("workbuddy", "A"), ("codex", "Q")])
         self.assertEqual(
             encode_state(s, 17),
-            "AR1 S seq=17 cc=3 cx=1 ds=1 done=21 wn=2 w=CC:A,CX:Q\n",
+            "AR1 S seq=17 wb=3 cx=1 ds=1 done=21 wn=2 w=WB:A,CX:Q\n",
         )
 
     def test_no_waiting_uses_dash(self):
         self.assertTrue(encode_state(snap(), 0).endswith(" wn=0 w=-\n"))
 
     def test_waiting_list_truncated_to_three_but_total_kept(self):
-        waiting = [("claude", "A"), ("codex", "A"), ("claude", "Q"), ("codex", "Q"), ("claude", "A")]
+        waiting = [("workbuddy", "A"), ("codex", "A"), ("workbuddy", "Q"), ("codex", "Q"), ("workbuddy", "A")]
         line = encode_state(snap(waiting=waiting), 1)
         self.assertIn(" wn=5 ", line)
-        self.assertTrue(line.endswith(" w=CC:A,CX:A,CC:Q\n"))
+        self.assertTrue(line.endswith(" w=WB:A,CX:A,WB:Q\n"))
 
     def test_values_are_clamped(self):
-        s = snap(cc=150, cx=-3, ds=100, done=5000)
+        s = snap(wb=150, cx=-3, ds=100, done=5000)
         line = encode_state(s, 70000)
         self.assertIn("seq=%d " % (70000 % 65536), line)
-        self.assertIn(" cc=99 cx=0 ds=99 done=999 ", line)
+        self.assertIn(" wb=99 cx=0 ds=99 done=999 ", line)
 
     def test_dsh_code(self):
         line = encode_state(snap(waiting=[("dsh", "Q")]), 2)
         self.assertTrue(line.endswith(" w=DS:Q\n"))
 
     def test_line_never_exceeds_limit(self):
-        waiting = [("claude", "A")] * 99
-        s = Snapshot(cc=99, cx=99, ds=99, done=999, wn=99, waiting=waiting)
+        waiting = [("workbuddy", "A")] * 99
+        s = Snapshot(wb=99, cx=99, ds=99, done=999, wn=99, waiting=waiting)
         self.assertLessEqual(len(encode_state(s, 65535).encode("ascii")), MAX_LINE)
         self.assertLessEqual(len(encode_state(s, 65535, minute=1439).encode("ascii")), MAX_LINE)
 
     def test_local_minute_appended(self):
         # 屏幕方案 §8：tm 为本地时间的当日分钟数，放在行尾，供设备判断夜间勿扰
-        s = snap(cc=3, cx=1, ds=1, done=21, waiting=[("claude", "A"), ("codex", "Q")])
+        s = snap(wb=3, cx=1, ds=1, done=21, waiting=[("workbuddy", "A"), ("codex", "Q")])
         self.assertEqual(
             encode_state(s, 17, minute=1342),
-            "AR1 S seq=17 cc=3 cx=1 ds=1 done=21 wn=2 w=CC:A,CX:Q tm=1342\n",
+            "AR1 S seq=17 wb=3 cx=1 ds=1 done=21 wn=2 w=WB:A,CX:Q tm=1342\n",
         )
         self.assertTrue(encode_state(snap(), 0, minute=0).endswith(" w=- tm=0\n"))
 
@@ -64,7 +64,7 @@ class EncodeAgentTest(unittest.TestCase):
 
     NOW = 1794192000
 
-    def encode(self, tool="claude", counts=ToolCounts(wn=0, bg=0, done=0), h=None, w=None, plan=None):
+    def encode(self, tool="workbuddy", counts=ToolCounts(wn=0, bg=0, done=0), h=None, w=None, plan=None):
         return encode_agent(tool, counts, h, w, self.NOW, plan)
 
     def test_matches_spec_example(self):
@@ -89,7 +89,7 @@ class EncodeAgentTest(unittest.TestCase):
 
     def test_unknown_usage_is_dash(self):
         line = self.encode(counts=ToolCounts(wn=1, bg=2, done=4))
-        self.assertEqual(line, "AR1 A t=CC wn=1 bg=2 done=4 h=- hr=- w=- wr=-\n")
+        self.assertEqual(line, "AR1 A t=WB wn=1 bg=2 done=4 h=- hr=- w=- wr=-\n")
 
     def test_percent_is_rounded_and_clamped(self):
         later = self.NOW + 3600

@@ -1,6 +1,6 @@
 # AI Passport 展示端
 
-[FoloToy AI Passport](https://ai-passport.folotoy.cn/)（ESP32-C3、240×320 屏幕、三个按键）上的 Agent Run! 固件。工作中的会话越多，宠物跑得越快；有会话等你处理时，宠物停下招手并响一声。经 USB 或蓝牙接收 [展示端协议](../../docs/protocol.md)。
+[FoloToy AI Passport](https://ai-passport.folotoy.cn/)（ESP32-C3、240×320 屏幕、三个按键）上的 Agent Run! WorkBuddy 版固件。Windows 上位机使用 USB；macOS 可用 USB 或原有蓝牙桥。工作中的会话越多，宠物跑得越快；有会话等你处理时，宠物停下招手并响一声。经 USB 或蓝牙接收 [展示端协议](../../docs/protocol.md)。
 
 ## 来源与许可
 
@@ -21,9 +21,16 @@ idf.py -C displays/ai-passport build
 
 在仓库根目录运行 `scripts/check.sh --firmware`，会先跑宿主测试，再构建并生成合并镜像 `build/agent-run-ai-passport-full.bin`。
 
+Windows 请在 ESP-IDF PowerShell 中运行等价命令：
+
+```powershell
+idf.py -C displays/ai-passport build
+idf.py -C displays/ai-passport merge-bin -o agent-run-ai-passport-full.bin
+```
+
 ## 烧录
 
-烧录前先停止 agent-run 采集程序，否则它每 3 秒探测一次串口，会和烧录工具抢端口：
+烧录前先停止 agent-run 采集程序，否则它每 3 秒探测一次串口，会和烧录工具抢端口。Windows 前台按 Ctrl+C；如注册了登录任务，运行 `schtasks /End /TN AgentRun`。macOS：
 
 ```bash
 launchctl bootout gui/$(id -u)/local.agent-run
@@ -33,6 +40,12 @@ launchctl bootout gui/$(id -u)/local.agent-run
 
   ```bash
   esptool.py --chip esp32c3 -p /dev/cu.usbmodem101 -b 460800 write_flash 0x0 displays/ai-passport/build/agent-run-ai-passport-full.bin
+  ```
+
+  Windows 示例（将 COM3 改为实际端口）：
+
+  ```powershell
+  python -m esptool --chip esp32c3 --port COM3 --baud 460800 write-flash 0x0 displays/ai-passport/build/agent-run-ai-passport-full.bin
   ```
 
 - **之后更新：** 用 `idf.py -C displays/ai-passport -p /dev/cu.usbmodem101 flash`，只写引导、分区表和应用，NVS 保留，不需要重新配对。
@@ -49,6 +62,7 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.agent-run.plist
 
 | 操作 | 作用 |
 |---|---|
+| 上 / 下 | 在首页、WorkBuddy、Codex 专页之间切换。首页含 dsh 计数。 |
 | 确定 单击 | 打开设置菜单（音量、亮度、电池熄屏、接电源熄屏、勿扰、夜间勿扰），默认选中音量 |
 | 确定 长按 | 立即熄屏（菜单打开、配对确认时不起作用） |
 | 菜单里 上 / 下 | 切换选中项；进入调节后加减档位并保存，勿扰类开关为上键开启、下键关闭 |

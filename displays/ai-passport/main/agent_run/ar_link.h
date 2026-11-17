@@ -8,7 +8,7 @@
 #include "esp_err.h"
 
 // 固件版本,随 HELLO 回报给主机
-#define AR_FW_VERSION "0.6.2"
+#define AR_FW_VERSION "0.6.2-wb"
 
 // 状态帧来源
 typedef enum {
@@ -24,7 +24,7 @@ typedef struct {
     ar_source_t last_source;   // 最近一帧的来源
     int64_t last_usb_us;       // 最近一帧 USB 状态的到达时间(esp_timer 微秒),0 表示从未收到
     int64_t last_ble_us;       // 最近一帧蓝牙状态的到达时间,0 表示从未收到
-    ar_agent_t agent[AR_AGENT_TOOLS];   // 每个工具最近一帧 A 帧,下标为 ar_tool_t(CC、CX)
+    ar_agent_t agent[AR_AGENT_TOOLS];   // 每个工具最近一帧 A 帧,下标为 ar_tool_t(WB、CX)
     bool has_agent[AR_AGENT_TOOLS];     // 开机后是否收到过该工具的 A 帧
 } ar_link_snapshot_t;
 

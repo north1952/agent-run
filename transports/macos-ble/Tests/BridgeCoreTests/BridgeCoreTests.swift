@@ -26,7 +26,7 @@ final class ProtocolTests: XCTestCase {
     }
 
     func testOnlyProtocolLinesAreForwarded() {
-        XCTAssertTrue(isForwardable(Data("AR1 S seq=1 cc=0 cx=0 ds=0 done=0 wn=0 w=-\n".utf8)))
+        XCTAssertTrue(isForwardable(Data("AR1 S seq=1 wb=0 cx=0 ds=0 done=0 wn=0 w=-\n".utf8)))
         XCTAssertTrue(isForwardable(Data("AR1 PING\n".utf8)))
         XCTAssertFalse(isForwardable(Data("AR1 PING".utf8)))             // 缺行尾
         XCTAssertFalse(isForwardable(Data("hello\n".utf8)))               // 不是协议行

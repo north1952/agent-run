@@ -8,10 +8,10 @@
 
 #define NEVER UINT32_MAX
 
-static ar_state_t state(uint8_t cc, uint8_t cx, uint8_t ds, uint8_t wn) {
+static ar_state_t state(uint8_t wb, uint8_t cx, uint8_t ds, uint8_t wn) {
     ar_state_t st;
     memset(&st, 0, sizeof(st));
-    st.cc = cc;
+    st.wb = wb;
     st.cx = cx;
     st.ds = ds;
     st.wn = wn;
@@ -20,7 +20,7 @@ static ar_state_t state(uint8_t cc, uint8_t cx, uint8_t ds, uint8_t wn) {
 
 static void test_speed_levels(void) {
     // 档位边界:0 睡觉、1 慢走、2-3 小跑、4-6 狂奔、>=7 冲刺(三个工具合计)
-    const struct { uint8_t cc, cx, ds; ar_screen_t want; } cases[] = {
+    const struct { uint8_t wb, cx, ds; ar_screen_t want; } cases[] = {
         {0, 0, 0, AR_SCREEN_SLEEP},
         {1, 0, 0, AR_SCREEN_WALK},
         {1, 1, 0, AR_SCREEN_TROT},
@@ -31,7 +31,7 @@ static void test_speed_levels(void) {
         {99, 99, 99, AR_SCREEN_DASH},
     };
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
-        ar_state_t st = state(cases[i].cc, cases[i].cx, cases[i].ds, 0);
+        ar_state_t st = state(cases[i].wb, cases[i].cx, cases[i].ds, 0);
         assert(ar_model_screen(&st, true) == cases[i].want);
     }
     ar_state_t st = state(99, 99, 99, 0);
@@ -824,17 +824,17 @@ static void test_no_deep_sleep_when_powered_or_pairing(void) {
     assert(!ar_model_should_deep_sleep(&in));
 }
 
-// 工具专用页面:首页 → Claude Code → Codex → 首页,下键前进、上键后退(专用页面方案 §4.1)
+// 工具专用页面:首页 → WorkBuddy → Codex → 首页,下键前进、上键后退(专用页面方案 §4.1)
 static void test_page_cycle(void) {
-    assert(ar_page_step(AR_PAGE_HOME, +1) == AR_PAGE_CC);
-    assert(ar_page_step(AR_PAGE_CC, +1) == AR_PAGE_CX);
+    assert(ar_page_step(AR_PAGE_HOME, +1) == AR_PAGE_WB);
+    assert(ar_page_step(AR_PAGE_WB, +1) == AR_PAGE_CX);
     assert(ar_page_step(AR_PAGE_CX, +1) == AR_PAGE_HOME);
     assert(ar_page_step(AR_PAGE_HOME, -1) == AR_PAGE_CX);
-    assert(ar_page_step(AR_PAGE_CX, -1) == AR_PAGE_CC);
-    assert(ar_page_step(AR_PAGE_CC, -1) == AR_PAGE_HOME);
-    assert(ar_page_step(AR_PAGE_CC, +2) == AR_PAGE_HOME);   // 下键双击按两步
-    assert(ar_page_step(AR_PAGE_CC, -2) == AR_PAGE_CX);
-    assert(ar_page_step(200, +1) == AR_PAGE_CC);            // 状态损坏时从首页算起
+    assert(ar_page_step(AR_PAGE_CX, -1) == AR_PAGE_WB);
+    assert(ar_page_step(AR_PAGE_WB, -1) == AR_PAGE_HOME);
+    assert(ar_page_step(AR_PAGE_WB, +2) == AR_PAGE_HOME);   // 下键双击按两步
+    assert(ar_page_step(AR_PAGE_WB, -2) == AR_PAGE_CX);
+    assert(ar_page_step(200, +1) == AR_PAGE_WB);            // 状态损坏时从首页算起
 }
 
 // 画面优先级:等你处理、未连接覆盖专用页面,清空后回到原页面;这些时候上下键不切页
@@ -842,7 +842,7 @@ static void test_page_priority_and_keys(void) {
     assert(ar_page_shown(AR_PAGE_CX, AR_SCREEN_WAITING) == AR_PAGE_HOME);
     assert(ar_page_shown(AR_PAGE_CX, AR_SCREEN_DISCONNECTED) == AR_PAGE_HOME);
     assert(ar_page_shown(AR_PAGE_CX, AR_SCREEN_RUN) == AR_PAGE_CX);
-    assert(ar_page_shown(AR_PAGE_CC, AR_SCREEN_SLEEP) == AR_PAGE_CC);
+    assert(ar_page_shown(AR_PAGE_WB, AR_SCREEN_SLEEP) == AR_PAGE_WB);
     assert(ar_page_shown(AR_PAGE_HOME, AR_SCREEN_WALK) == AR_PAGE_HOME);
     assert(ar_page_shown(9, AR_SCREEN_WALK) == AR_PAGE_HOME);
 

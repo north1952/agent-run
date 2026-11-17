@@ -5,11 +5,11 @@
 设备的开机日志等其他输出可能出现在头部之前，按行跳过。
 PNG 编码只用标准库（zlib + struct），不依赖第三方图像库。
 """
-import os
-import select
 import struct
 import time
 import zlib
+
+from .serial_link import LinkClosed
 
 HEADER = b"FAP_SCREENSHOT_V1"
 
@@ -89,28 +89,23 @@ def encode_png(rgb, width, height):
             + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
 
 
-def _read_chunks(fd, timeout):
-    """从非阻塞文件描述符持续读取，直到超时。"""
+def _read_chunks(link, timeout):
+    """从非阻塞串口持续读取，直到超时。"""
     deadline = time.monotonic() + timeout
-    while True:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            return
-        ready, _, _ = select.select([fd], [], [], min(remaining, 0.2))
-        if not ready:
-            continue
+    while time.monotonic() < deadline:
         try:
-            data = os.read(fd, 4096)
-        except BlockingIOError:
-            continue
-        if not data:
+            data = link.read_bytes()
+        except LinkClosed:
             return
-        yield data
+        if data:
+            yield data
+        else:
+            time.sleep(0.01)
 
 
 def capture(link, timeout=DEFAULT_TIMEOUT):
     """经已打开的 SerialLink 请求一次截屏，返回 (宽, 高, RGB 字节)。"""
     if not link.write_line(HEADER.decode() + "\n"):
         raise ScreenshotError("发送截屏命令失败")
-    width, height, raw = parse_capture(_read_chunks(link.fileno(), timeout))
+    width, height, raw = parse_capture(_read_chunks(link, timeout))
     return width, height, rgb565le_to_rgb(raw)

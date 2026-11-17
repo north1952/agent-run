@@ -416,7 +416,7 @@ static int draw_big_number(unsigned value, bool dim) {
 // 计数格:上方数字,下方工具代号
 static void draw_tile(int index, unsigned value) {
     static lv_draw_buf_t *const bufs[3] = { &s_tile0_buf, &s_tile1_buf, &s_tile2_buf };
-    static const char *const names[3] = { "CC", "CODEX", "DSH" };
+    static const char *const names[3] = { "WB", "CODEX", "DSH" };
     char text[4];
     if (value > 99) value = 99;
     snprintf(text, sizeof(text), "%u", value);
@@ -680,7 +680,7 @@ static const char *tool_text(uint8_t tool) {
     switch (tool) {
     case AR_TOOL_CX: return AR_TXT_TOOL_CX;
     case AR_TOOL_DS: return AR_TXT_TOOL_DS;
-    default: return AR_TXT_TOOL_CC;
+    default: return AR_TXT_TOOL_WB;
     }
 }
 
@@ -699,7 +699,7 @@ static void create_agent_page(void) {
     static const char *const tile_names[3] = { AR_TXT_TILE_WORKING, AR_TXT_TILE_BACKGROUND, AR_TXT_DONE_TODAY };
     s_agent = make_group(s_scr);
     s_agent_title = make_label(s_agent, C_TEXT, PAD_X, AGENT_TITLE_Y);
-    // 页码点靠右,三点依次为首页、Claude Code、Codex
+    // 页码点靠右,三点依次为首页、WorkBuddy、Codex
     for (int i = 0; i < AR_PAGE_COUNT; i++) {
         const int x = PAD_X + CONTENT_W - (AR_PAGE_COUNT - i) * (PAGE_DOT + PAGE_DOT_GAP) + PAGE_DOT_GAP;
         s_page_dots[i] = make_box(s_agent, C_TRACK, x, AGENT_TITLE_Y + 5, PAGE_DOT, PAGE_DOT, PAGE_DOT / 2);
@@ -1148,9 +1148,9 @@ static void update_plan_chip(const char *plan) {
 // 工具专用页面:工具名与套餐徽标、页码点、两张用量卡片,三格为工作中、后台运行、今日完成,底栏只有切换提示。
 // 不显示“等你处理”:有会话等你处理时调用方显示提醒画面,专用页面出现时这个数必为 0
 static void update_agent_page(const ar_view_t *v) {
-    const bool cc = v->page == AR_PAGE_CC;
+    const bool wb = v->page == AR_PAGE_WB;
     const ar_agent_t *a = &v->agent;
-    lv_label_set_text(s_agent_title, cc ? AR_TXT_TOOL_CC : AR_TXT_TOOL_CX);
+    lv_label_set_text(s_agent_title, wb ? AR_TXT_TOOL_WB : AR_TXT_TOOL_CX);
     update_plan_chip(v->has_agent ? a->plan : "");   // 还没收到 A 帧时不显示套餐
     for (int i = 0; i < AR_PAGE_COUNT; i++) {
         lv_obj_set_style_bg_color(s_page_dots[i], lv_color_hex(i == v->page ? C_ACCENT : C_TRACK), LV_PART_MAIN);
@@ -1159,8 +1159,8 @@ static void update_agent_page(const ar_view_t *v) {
     update_card(&s_cards[0], v->has_agent ? a->h : AR_USAGE_UNKNOWN, a->hr);
     update_card(&s_cards[1], v->has_agent ? a->w : AR_USAGE_UNKNOWN, a->wr);
 
-    // 工作中沿用状态帧的 cc / cx(含后台运行);刚有会话完成时“今日完成”用强调色
-    draw_agent_tile(0, cc ? v->state.cc : v->state.cx, C_TEXT);
+    // 工作中沿用状态帧的 wb / cx(含后台运行);刚有会话完成时“今日完成”用强调色
+    draw_agent_tile(0, wb ? v->state.wb : v->state.cx, C_TEXT);
     draw_agent_tile(1, v->has_agent ? a->bg : 0, C_TEXT);
     draw_agent_tile(2, v->has_agent ? a->done : 0, v->agent_flash ? C_ACCENT : C_TEXT);
     lv_obj_set_style_text_color(s_tile_label[2], lv_color_hex(v->agent_flash ? C_ACCENT : C_TEXT2), LV_PART_MAIN);
@@ -1248,7 +1248,7 @@ void ar_ui_update(const ar_view_t *v) {
         for (int i = 0; i < 4; i++) {
             lv_obj_set_style_bg_color(s_bars[i], lv_color_hex(i < bars ? C_ACCENT : C_TRACK), LV_PART_MAIN);
         }
-        draw_tile(0, s->cc);
+        draw_tile(0, s->wb);
         draw_tile(1, s->cx);
         draw_tile(2, s->ds);
 

@@ -21,6 +21,7 @@ class FakeClock:
         return self.t
 
 
+@unittest.skipIf(os.name == "nt", "uses the macOS Unix datagram bridge")
 class BleLinkTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp(prefix="arb-")
@@ -49,8 +50,8 @@ class BleLinkTest(unittest.TestCase):
         self.write_status(True, self.clock.t - 1)
         hello = self.link.handshake()
         self.assertEqual((hello["type"], hello["fw"], hello["name"]), ("HELLO", "0.2.0", "AgentRun-XXXX"))
-        self.assertTrue(self.link.write_line("AR1 S seq=1 cc=1 cx=0 ds=0 done=0 wn=0 w=-\n"))
-        self.assertEqual(self.bridge.recv(512), b"AR1 S seq=1 cc=1 cx=0 ds=0 done=0 wn=0 w=-\n")
+        self.assertTrue(self.link.write_line("AR1 S seq=1 wb=1 cx=0 ds=0 done=0 wn=0 w=-\n"))
+        self.assertEqual(self.bridge.recv(512), b"AR1 S seq=1 wb=1 cx=0 ds=0 done=0 wn=0 w=-\n")
         self.assertEqual(self.link.read_lines(), [])
 
     def test_stale_or_disconnected_bridge_closes_link(self):

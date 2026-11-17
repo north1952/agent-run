@@ -81,6 +81,6 @@
 #define AR_TXT_PAGE_HINT "上下键切换"
 
 // 工具名(等待列表)
-#define AR_TXT_TOOL_CC "Claude Code"
+#define AR_TXT_TOOL_WB "WorkBuddy"
 #define AR_TXT_TOOL_CX "Codex"
 #define AR_TXT_TOOL_DS "dsh"

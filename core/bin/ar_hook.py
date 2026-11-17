@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
 """Agent Run! 的 hook 入口（设计方案 §5.2）。
 
-由 Claude Code / Codex 以 `python3 ar_hook.py <claude|codex>` 调用：
-从 stdin 读取 hook JSON，只保留白名单字段，作为一个 Unix 数据报发给 agent-run 守护进程。
+由 WorkBuddy / Codex 以 `python3 ar_hook.py <workbuddy|codex>` 调用：
+从 stdin 读取 hook JSON，只保留白名单字段，作为一个 本机数据报发给 agent-run 守护进程。
 
 契约：
 - 无论成功失败都以退出码 0 结束，不向 stdout / stderr 输出任何内容；
 - 守护进程不在、JSON 异常、socket 写满时静默丢弃；
 - 提示词、路径、工具参数等一律不转发。
 
-本文件刻意不依赖 agent_run 包，保证被各种工作目录调用时都能快速启动。
+只依赖本项目的本地通信模块与 Python 标准库。
 """
 import json
 import os
-import socket
 import sys
 import time
 
+_here = os.path.dirname(os.path.realpath(__file__))
+for _candidate in (os.path.join(_here, "..", "lib"), os.path.join(_here, "..")):
+    if os.path.isdir(os.path.join(_candidate, "agent_run")):
+        sys.path.insert(0, os.path.abspath(_candidate))
+        break
+
 # 认可的工具名，对应命令行第一个参数（dsh 通过其 Claude Code 兼容 hook 插件调用）
-TOOLS = ("claude", "codex", "dsh")
+TOOLS = ("workbuddy", "codex", "dsh")
 
 # 字段长度上限：异常长的值直接整条丢弃
 MAX_FIELD = 200
@@ -52,7 +57,7 @@ def reduce_payload(payload, tool, now):
     ntype = _short_str(payload.get("notification_type"))
     if ntype is not None:
         msg["ntype"] = ntype
-    # Claude Code 的 Stop 载荷带 background_tasks（进行中的后台 shell、子代理、Monitor 等），
+    # WorkBuddy 的 Stop 载荷带 background_tasks（进行中的后台 shell、子代理、Monitor 等），
     # 守护进程据此区分“这一轮结束”与“暂停等后台任务唤醒”。只转发数量，命令与描述一律不转发
     tasks = payload.get("background_tasks")
     if isinstance(tasks, list):
@@ -63,10 +68,11 @@ def reduce_payload(payload, tool, now):
     return msg
 
 
-def _socket_path():
-    """守护进程事件入口：$AGENT_RUN_HOME/run/ar.sock，默认 ~/.agent-run。"""
-    home = os.environ.get("AGENT_RUN_HOME") or os.path.expanduser("~/.agent-run")
-    return os.path.join(home, "run", "ar.sock")
+def _home(fallback):
+    # 已部署 hook 与运行目录相邻；不依赖 WorkBuddy/Codex 是否继承启动环境。
+    if os.path.isdir(os.path.join(_here, "..", "lib", "agent_run")):
+        return os.path.dirname(_here)
+    return fallback()
 
 
 def main(argv):
@@ -83,12 +89,9 @@ def main(argv):
         data = json.dumps(msg, separators=(",", ":")).encode("utf-8")
         if len(data) > MAX_DATAGRAM:
             return 0
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-        try:
-            sock.settimeout(0.1)
-            sock.sendto(data, _socket_path())
-        finally:
-            sock.close()
+        from agent_run.event_link import default_home, send
+
+        send(_home(default_home), data)
     except Exception:
         # 任何异常都不能影响 Agent：静默结束
         pass

@@ -17,7 +17,7 @@ static const uint32_t BATTERY_OFF_MS[AR_BATTERY_OFF_OPTIONS] = { 10000u, 30000u,
 static const uint32_t USB_OFF_MS[AR_USB_OFF_OPTIONS] = { 300000u, 600000u, 1800000u, 3600000u, AR_OFF_NEVER };
 
 unsigned ar_model_working_total(const ar_state_t *s) {
-    return (unsigned)s->cc + (unsigned)s->cx + (unsigned)s->ds;
+    return (unsigned)s->wb + (unsigned)s->cx + (unsigned)s->ds;
 }
 
 bool ar_model_link_alive(uint32_t usb_since_ms, uint32_t ble_since_ms) {

@@ -15,3 +15,6 @@ displays/ai-passport/sdkconfig.old
 .vscode/
 .idea/
 .DS_Store
+
+# Local validation outputs
+/build/

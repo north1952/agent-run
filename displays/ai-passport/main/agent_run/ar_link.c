@@ -54,7 +54,7 @@ void ar_link_publish(const ar_state_t *st, ar_source_t src) {
 }
 
 void ar_link_publish_agent(const ar_agent_t *agent) {
-    if (agent->tool >= AR_AGENT_TOOLS) return;   // 解析时已限定为 CC / CX,这里再防一次越界
+    if (agent->tool >= AR_AGENT_TOOLS) return;   // 解析时已限定为 WB / CX,这里再防一次越界
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_snap.agent[agent->tool] = *agent;
     s_snap.has_agent[agent->tool] = true;

@@ -8,7 +8,7 @@ from .usage import NO_LIMIT
 MAX_LINE = 160
 
 # 工具代号：上串口的只有代号，不含任何项目信息
-TOOL_CODES = {"claude": "CC", "codex": "CX", "dsh": "DS"}
+TOOL_CODES = {"workbuddy": "WB", "codex": "CX", "dsh": "DS"}
 
 # 等待列表最多发送的项数；wn 字段仍是总数
 MAX_WAITING_ITEMS = 3
@@ -26,7 +26,7 @@ MAX_MINUTE = 1439
 def encode_state(snap, seq, minute=None):
     """把快照编码成一行状态帧，例如：
 
-    AR1 S seq=17 cc=3 cx=1 ds=1 done=21 wn=2 w=CC:A,CX:Q tm=1342
+    AR1 S seq=17 wb=3 cx=1 ds=1 done=21 wn=2 w=WB:A,CX:Q tm=1342
 
     minute 为本地时间的当日分钟数（时 × 60 + 分），供设备判断夜间勿扰（屏幕方案 §8）；
     为 None 或超出 0–1439 时省略 tm 字段，设备按时间未知处理。
@@ -40,9 +40,9 @@ def encode_state(snap, seq, minute=None):
             items.append("%s:%s" % (code, reason))
     waiting = ",".join(items) if items else "-"
     tm = " tm=%d" % minute if minute is not None and 0 <= minute <= MAX_MINUTE else ""
-    return "AR1 S seq=%d cc=%d cx=%d ds=%d done=%d wn=%d w=%s%s\n" % (
+    return "AR1 S seq=%d wb=%d cx=%d ds=%d done=%d wn=%d w=%s%s\n" % (
         int(seq) % 65536,
-        _clamp(snap.cc, 99),
+        _clamp(snap.wb, 99),
         _clamp(snap.cx, 99),
         _clamp(snap.ds, 99),
         _clamp(snap.done, 999),

@@ -103,10 +103,10 @@ uint16_t ar_model_frame_interval_ms(ar_screen_t screen);
 // 速度条点亮的格数(0-4)
 uint8_t ar_model_speed_bars(ar_screen_t screen);
 
-// 工具专用页面(专用页面方案 §4.1)。页面顺序:首页 → Claude Code → Codex → 首页
+// 工具专用页面(专用页面方案 §4.1)。页面顺序:首页 → WorkBuddy → Codex → 首页
 typedef enum {
     AR_PAGE_HOME = 0,   // 首页:宠物与计数
-    AR_PAGE_CC,         // Claude Code 专用页面
+    AR_PAGE_WB,         // WorkBuddy 专用页面
     AR_PAGE_CX,         // Codex 专用页面
     AR_PAGE_COUNT,
 } ar_page_t;

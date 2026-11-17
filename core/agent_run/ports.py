@@ -3,6 +3,7 @@
 AI Passport 的 USB 口是 ESP32-C3 自带的 USB Serial/JTAG，USB 厂商号为 Espressif 的 0x303A。
 用 ioreg 列出 USB 设备子树，从中找到该厂商设备下的 /dev/cu.* 端口。
 """
+import os
 import re
 import subprocess
 
@@ -37,6 +38,10 @@ def parse_ioreg(text, vendor_id=ESPRESSIF_VID):
 
 def find_espressif_ports():
     """返回当前接入的 Espressif USB 串口列表；ioreg 不可用时返回空列表。"""
+    if os.name == "nt":
+        from serial.tools import list_ports
+
+        return sorted(port.device for port in list_ports.comports() if port.vid == ESPRESSIF_VID)
     try:
         out = subprocess.run(
             ["ioreg", "-r", "-c", "IOUSBHostDevice", "-l", "-w0"],

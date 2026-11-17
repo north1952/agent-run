@@ -516,7 +516,7 @@ static void app_task(void *arg) {
         // 专用页面:等你处理、未连接时换算成首页;工具下标即 ar_tool_t(CC、CX)
         view.page = ar_page_shown(s_page, screen);
         if (view.page != AR_PAGE_HOME) {
-            const int tool = view.page == AR_PAGE_CC ? AR_TOOL_CC : AR_TOOL_CX;
+            const int tool = view.page == AR_PAGE_WB ? AR_TOOL_WB : AR_TOOL_CX;
             view.has_agent = link.has_agent[tool];
             if (view.has_agent) memcpy(&view.agent, &link.agent[tool], sizeof(view.agent));
             view.agent_flash = now < s_agent_flash_until_us[tool];
